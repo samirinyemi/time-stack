@@ -350,7 +350,7 @@ export function initScene(container, onLayerChange, onObjectClick) {
       const t = e.touches[0];
       const tdx = t.clientX - lastTouchX;
       const tdy = t.clientY - lastTouchY;
-      cameraTargetY -= tdy * 0.035;
+      cameraTargetY += tdy * 0.035;
       cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
       rotationTarget -= tdx * 0.004;
       lastTouchX = t.clientX;

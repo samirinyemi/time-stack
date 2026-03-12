@@ -657,7 +657,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
       const t = e.touches[0];
       const tdx = t.clientX - lastTouchX;
       const tdy = t.clientY - lastTouchY;
-      cameraTargetZ -= tdy * 0.05;
+      cameraTargetZ += tdy * 0.05;
       cameraTargetZ = Math.max(minZ, Math.min(maxZ, cameraTargetZ));
       yawTarget -= tdx * 0.004;
       lastTouchX = t.clientX;
