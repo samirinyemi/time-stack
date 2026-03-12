@@ -34,7 +34,7 @@ export const LAYERS = [
     period: 'Origin',
     quote: 'Before design, there was observation.',
     detail: 'Where curiosity became intention',
-    color: '#3D2B1A',
+    color: '#7A5C3E',
     objects: ['First Brief', 'Sketchbook', 'The Eye'],
     objectDescriptions: [
       'The very first design brief that started it all \u2014 a handwritten note on lined paper.',
