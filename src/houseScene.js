@@ -7,7 +7,9 @@ const ROOM_HEIGHT = 5;
 const DOOR_WIDTH = 3;
 const DOOR_HEIGHT = 3.8;
 const ROOM_CENTERS = LAYERS.map((_, i) => i * ROOM_DEPTH + ROOM_DEPTH / 2);
-const INTRO_DURATION = 3.5; // seconds for exterior → interior fly-in
+const INTRO_FLY_DURATION = 3.5;  // fly from outside → last room
+const INTRO_TURN_DURATION = 1.2; // 180° camera turn at the end
+const INTRO_TOTAL_DURATION = INTRO_FLY_DURATION + INTRO_TURN_DURATION;
 
 const GEOMETRY_FACTORIES = [
   () => [
@@ -350,9 +352,9 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   // --- Intro animation state ---
   let introPhase = !prefersReducedMotion;
   const introStartPos = new THREE.Vector3(0, 2.8, -10);
-  const introEndPos = new THREE.Vector3(0, 2.2, ROOM_CENTERS[0]);
+  const introEndPos = new THREE.Vector3(0, 2.2, ROOM_CENTERS[LAYERS.length - 1]);
 
-  const startRoom = 0;
+  const startRoom = LAYERS.length - 1;
   let cameraTargetZ = ROOM_CENTERS[startRoom];
   let cameraCurrentZ = ROOM_CENTERS[startRoom];
   let yawTarget = 0;
@@ -460,7 +462,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
       fovTarget += e.deltaY * 0.05;
       fovTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, fovTarget));
     } else {
-      cameraTargetZ += e.deltaY * 0.012;
+      cameraTargetZ -= e.deltaY * 0.012;
       cameraTargetZ = Math.max(minZ, Math.min(maxZ, cameraTargetZ));
     }
   };
@@ -533,7 +535,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
       const t = e.touches[0];
       const tdx = t.clientX - lastTouchX;
       const tdy = t.clientY - lastTouchY;
-      cameraTargetZ += tdy * 0.05;
+      cameraTargetZ -= tdy * 0.05;
       cameraTargetZ = Math.max(minZ, Math.min(maxZ, cameraTargetZ));
       yawTarget += tdx * 0.004;
       lastTouchX = t.clientX;
@@ -572,16 +574,16 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     animId = requestAnimationFrame(animate);
     const time = clock.getElapsedTime();
 
-    // --- Intro camera fly-through ---
+    // --- Intro: Phase 1 = fly-through, Phase 2 = 180° turn ---
     if (introPhase) {
-      if (time < INTRO_DURATION) {
-        const t = smoothstep(time / INTRO_DURATION);
+      if (time < INTRO_FLY_DURATION) {
+        // Phase 1: fly from outside → last room, looking forward
+        const t = smoothstep(time / INTRO_FLY_DURATION);
         camera.position.lerpVectors(introStartPos, introEndPos, t);
-        // Look forward along the hallway during intro
         const lookZ = camera.position.z + 10;
         camera.lookAt(0, 2.2, lookZ);
 
-        // Detect active layer during intro for UI updates
+        // Detect active layer during fly-through for UI updates
         let closest = 0;
         let closestDist = Infinity;
         for (let i = 0; i < ROOM_CENTERS.length; i++) {
@@ -595,15 +597,25 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
           currentActiveLayer = closest;
           onLayerChange(closest);
         }
+      } else if (time < INTRO_TOTAL_DURATION) {
+        // Phase 2: 180° turn at the last room
+        const turnT = smoothstep((time - INTRO_FLY_DURATION) / INTRO_TURN_DURATION);
+        const turnYaw = turnT * Math.PI; // 0 → π
+        camera.position.copy(introEndPos);
+        camera.lookAt(
+          Math.sin(turnYaw) * 10,
+          2.2,
+          introEndPos.z + Math.cos(turnYaw) * 10
+        );
       } else {
-        // Intro complete — hand off to normal controls
+        // Intro complete — hand off to normal controls facing backward
         introPhase = false;
         cameraCurrentZ = introEndPos.z;
         cameraTargetZ = introEndPos.z;
         fovCurrent = 65;
         fovTarget = 65;
-        yawCurrent = 0;
-        yawTarget = 0;
+        yawCurrent = Math.PI;
+        yawTarget = Math.PI;
         camera.position.copy(introEndPos);
       }
     }
