@@ -359,11 +359,16 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   let cameraCurrentZ = ROOM_CENTERS[startRoom];
   let yawTarget = 0;
   let yawCurrent = 0;
+  let pitchTarget = 0;
+  let pitchCurrent = 0;
+  const PITCH_MIN = -0.6;
+  const PITCH_MAX = 0.6;
   let currentActiveLayer = startRoom;
   // Notify React of starting layer immediately
   onLayerChange(startRoom);
   let isDragging = false;
   let lastMouseX = 0;
+  let lastMouseY = 0;
   let mouseDownPos = { x: 0, y: 0 };
   let lastTouchX = 0;
   let lastTouchY = 0;
@@ -459,8 +464,14 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     e.preventDefault();
     if (introPhase) return;
     if (e.ctrlKey || e.metaKey) {
+      const oldFov = fovTarget;
       fovTarget += e.deltaY * 0.05;
       fovTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, fovTarget));
+      // Zoom toward mouse cursor by shifting look direction
+      const fovDelta = fovTarget - oldFov;
+      yawTarget -= mouse.x * fovDelta * 0.008;
+      pitchTarget += mouse.y * fovDelta * 0.006;
+      pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     } else {
       cameraTargetZ -= e.deltaY * 0.012;
       cameraTargetZ = Math.max(minZ, Math.min(maxZ, cameraTargetZ));
@@ -472,6 +483,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     if (introPhase) return;
     isDragging = true;
     lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
     mouseDownPos = { x: e.clientX, y: e.clientY };
   };
   const onMouseMove = (e) => {
@@ -481,7 +493,10 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     if (introPhase) return;
     if (!isDragging) return;
     yawTarget += (e.clientX - lastMouseX) * 0.003;
+    pitchTarget -= (e.clientY - lastMouseY) * 0.003;
+    pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
   };
   const onMouseUp = (e) => {
     isDragging = false;
@@ -552,11 +567,22 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   const onKeyDown = (e) => {
     if (introPhase) return;
     if (e.key === '=' || e.key === '+') {
+      const oldFov = fovTarget;
       fovTarget = Math.max(FOV_MIN, fovTarget - 3);
+      const fovDelta = fovTarget - oldFov;
+      yawTarget -= mouse.x * fovDelta * 0.008;
+      pitchTarget += mouse.y * fovDelta * 0.006;
+      pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     } else if (e.key === '-' || e.key === '_') {
+      const oldFov = fovTarget;
       fovTarget = Math.min(FOV_MAX, fovTarget + 3);
+      const fovDelta = fovTarget - oldFov;
+      yawTarget -= mouse.x * fovDelta * 0.008;
+      pitchTarget += mouse.y * fovDelta * 0.006;
+      pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     } else if (e.key === '0') {
       fovTarget = 65;
+      pitchTarget = 0;
     }
   };
   window.addEventListener('keydown', onKeyDown);
@@ -616,6 +642,8 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
         fovTarget = 65;
         yawCurrent = Math.PI;
         yawTarget = Math.PI;
+        pitchCurrent = 0;
+        pitchTarget = 0;
         camera.position.copy(introEndPos);
       }
     }
@@ -623,8 +651,9 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     if (!introPhase) {
       // Camera Z lerp
       cameraCurrentZ += (cameraTargetZ - cameraCurrentZ) * 0.055;
-      // Yaw lerp
+      // Yaw + Pitch lerp
       yawCurrent += (yawTarget - yawCurrent) * 0.075;
+      pitchCurrent += (pitchTarget - pitchCurrent) * 0.075;
       // FOV lerp
       fovCurrent += (fovTarget - fovCurrent) * 0.065;
       camera.fov = fovCurrent;
@@ -632,9 +661,9 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
 
       camera.position.set(0, 2.2, cameraCurrentZ);
       camera.lookAt(
-        Math.sin(yawCurrent) * 10,
-        2.2,
-        cameraCurrentZ + Math.cos(yawCurrent) * 10
+        Math.sin(yawCurrent) * Math.cos(pitchCurrent) * 10,
+        2.2 + Math.sin(pitchCurrent) * 10,
+        cameraCurrentZ + Math.cos(yawCurrent) * Math.cos(pitchCurrent) * 10
       );
 
       // Active layer detection (normal mode)

@@ -112,8 +112,15 @@ export function initScene(container, onLayerChange, onObjectClick) {
   let rotationTarget = 0;
   let rotationCurrent = 0;
   let currentActiveLayer = 4;
+  let pitchTarget = 0;
+  let pitchCurrent = 0;
+  const PITCH_MIN = -0.8;
+  const PITCH_MAX = 0.6;
+  let panXTarget = 0;
+  let panXCurrent = 0;
   let isDragging = false;
   let lastMouseX = 0;
+  let lastMouseY = 0;
   let mouseDownPos = { x: 0, y: 0 };
   let lastTouchX = 0;
   let lastTouchY = 0;
@@ -252,8 +259,14 @@ export function initScene(container, onLayerChange, onObjectClick) {
     e.preventDefault();
     if (introPhase) return;
     if (e.ctrlKey || e.metaKey) {
+      const oldZ = cameraTargetZ;
       cameraTargetZ += e.deltaY * 0.015;
       cameraTargetZ = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cameraTargetZ));
+      // Zoom toward mouse cursor
+      const zoomDelta = cameraTargetZ - oldZ;
+      panXTarget -= mouse.x * zoomDelta * 0.4;
+      cameraTargetY -= mouse.y * zoomDelta * 0.15;
+      cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
     } else {
       cameraTargetY -= e.deltaY * 0.008;
       cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
@@ -265,6 +278,7 @@ export function initScene(container, onLayerChange, onObjectClick) {
     if (introPhase) return;
     isDragging = true;
     lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
     mouseDownPos = { x: e.clientX, y: e.clientY };
   };
   const onMouseMove = (e) => {
@@ -274,7 +288,10 @@ export function initScene(container, onLayerChange, onObjectClick) {
     if (introPhase) return;
     if (!isDragging) return;
     rotationTarget += (e.clientX - lastMouseX) * 0.003;
+    pitchTarget -= (e.clientY - lastMouseY) * 0.003;
+    pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
   };
   const onMouseUp = (e) => {
     isDragging = false;
@@ -347,11 +364,19 @@ export function initScene(container, onLayerChange, onObjectClick) {
   const onKeyDown = (e) => {
     if (introPhase) return;
     if (e.key === '=' || e.key === '+') {
+      const oldZ = cameraTargetZ;
       cameraTargetZ = Math.max(ZOOM_MIN, cameraTargetZ - 2);
+      const zoomDelta = cameraTargetZ - oldZ;
+      panXTarget -= mouse.x * zoomDelta * 0.4;
     } else if (e.key === '-' || e.key === '_') {
+      const oldZ = cameraTargetZ;
       cameraTargetZ = Math.min(ZOOM_MAX, cameraTargetZ + 2);
+      const zoomDelta = cameraTargetZ - oldZ;
+      panXTarget -= mouse.x * zoomDelta * 0.4;
     } else if (e.key === '0') {
       cameraTargetZ = 22;
+      panXTarget = 0;
+      pitchTarget = 0;
     }
   };
   window.addEventListener('keydown', onKeyDown);
@@ -396,6 +421,12 @@ export function initScene(container, onLayerChange, onObjectClick) {
         cameraTargetY = introEndPos.y;
         cameraCurrentZ = introEndPos.z;
         cameraTargetZ = introEndPos.z;
+        rotationCurrent = 0;
+        rotationTarget = 0;
+        pitchCurrent = 0;
+        pitchTarget = 0;
+        panXCurrent = 0;
+        panXTarget = 0;
         camera.position.copy(introEndPos);
       }
     }
@@ -404,12 +435,19 @@ export function initScene(container, onLayerChange, onObjectClick) {
       // Camera lerp
       cameraCurrentY += (cameraTargetY - cameraCurrentY) * 0.055;
       cameraCurrentZ += (cameraTargetZ - cameraCurrentZ) * 0.065;
-      camera.position.set(0, cameraCurrentY, cameraCurrentZ);
-      camera.lookAt(0, cameraCurrentY - 2.5, 0);
+      panXCurrent += (panXTarget - panXCurrent) * 0.065;
 
-      // Rotation lerp
+      // Orbit lerp
       rotationCurrent += (rotationTarget - rotationCurrent) * 0.075;
-      layerGroup.rotation.y = rotationCurrent;
+      pitchCurrent += (pitchTarget - pitchCurrent) * 0.075;
+
+      // Orbital camera position
+      const orbitR = cameraCurrentZ;
+      const camX = panXCurrent + Math.sin(rotationCurrent) * Math.cos(pitchCurrent) * orbitR;
+      const camY = cameraCurrentY + Math.sin(pitchCurrent) * orbitR;
+      const camZ = Math.cos(rotationCurrent) * Math.cos(pitchCurrent) * orbitR;
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(panXCurrent, cameraCurrentY - 2.5, 0);
 
       // Active layer detection
       let closest = 0;
