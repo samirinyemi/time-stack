@@ -262,11 +262,14 @@ export function initScene(container, onLayerChange, onObjectClick) {
       const oldZ = cameraTargetZ;
       cameraTargetZ += e.deltaY * 0.015;
       cameraTargetZ = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cameraTargetZ));
-      // Zoom toward mouse cursor
-      const zoomDelta = cameraTargetZ - oldZ;
-      panXTarget -= mouse.x * zoomDelta * 0.4;
-      cameraTargetY -= mouse.y * zoomDelta * 0.15;
-      cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
+      // Zoom toward mouse cursor: raycast to find scene point under cursor
+      raycaster.setFromCamera(mouse, camera);
+      const hitPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(cameraCurrentY - 2.5));
+      const hitPoint = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(hitPlane, hitPoint)) {
+        const ratio = 1 - cameraTargetZ / oldZ;
+        panXTarget += (hitPoint.x - panXCurrent) * ratio;
+      }
     } else {
       cameraTargetY -= e.deltaY * 0.008;
       cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
@@ -287,8 +290,8 @@ export function initScene(container, onLayerChange, onObjectClick) {
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     if (introPhase) return;
     if (!isDragging) return;
-    rotationTarget += (e.clientX - lastMouseX) * 0.003;
-    pitchTarget -= (e.clientY - lastMouseY) * 0.003;
+    rotationTarget -= (e.clientX - lastMouseX) * 0.003;
+    pitchTarget += (e.clientY - lastMouseY) * 0.003;
     pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
@@ -349,7 +352,7 @@ export function initScene(container, onLayerChange, onObjectClick) {
       const tdy = t.clientY - lastTouchY;
       cameraTargetY -= tdy * 0.035;
       cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
-      rotationTarget += tdx * 0.004;
+      rotationTarget -= tdx * 0.004;
       lastTouchX = t.clientX;
       lastTouchY = t.clientY;
     }
@@ -366,13 +369,23 @@ export function initScene(container, onLayerChange, onObjectClick) {
     if (e.key === '=' || e.key === '+') {
       const oldZ = cameraTargetZ;
       cameraTargetZ = Math.max(ZOOM_MIN, cameraTargetZ - 2);
-      const zoomDelta = cameraTargetZ - oldZ;
-      panXTarget -= mouse.x * zoomDelta * 0.4;
+      raycaster.setFromCamera(mouse, camera);
+      const hp = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(cameraCurrentY - 2.5));
+      const hv = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(hp, hv)) {
+        const r = 1 - cameraTargetZ / oldZ;
+        panXTarget += (hv.x - panXCurrent) * r;
+      }
     } else if (e.key === '-' || e.key === '_') {
       const oldZ = cameraTargetZ;
       cameraTargetZ = Math.min(ZOOM_MAX, cameraTargetZ + 2);
-      const zoomDelta = cameraTargetZ - oldZ;
-      panXTarget -= mouse.x * zoomDelta * 0.4;
+      raycaster.setFromCamera(mouse, camera);
+      const hp = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(cameraCurrentY - 2.5));
+      const hv = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(hp, hv)) {
+        const r = 1 - cameraTargetZ / oldZ;
+        panXTarget += (hv.x - panXCurrent) * r;
+      }
     } else if (e.key === '0') {
       cameraTargetZ = 22;
       panXTarget = 0;

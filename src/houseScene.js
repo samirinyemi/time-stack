@@ -315,6 +315,111 @@ function buildExterior(layerGroup) {
   layerGroup.add(extLight);
 }
 
+function buildDecorations(layerGroup, layer, index) {
+  const roomZ = index * ROOM_DEPTH;
+  const centerZ = roomZ + ROOM_DEPTH / 2;
+  const layerColor = new THREE.Color(layer.color);
+
+  // --- Wall art (2 per room: one left, one right) ---
+  const artW = 1.6;
+  const artH = 1.1;
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: layerColor.clone().multiplyScalar(0.55),
+    metalness: 0.65,
+    roughness: 0.35,
+  });
+  const canvasMat = new THREE.MeshStandardMaterial({
+    color: layerColor.clone().multiplyScalar(0.2),
+    metalness: 0.05,
+    roughness: 0.92,
+    emissive: layerColor,
+    emissiveIntensity: 0.04,
+  });
+
+  // Left wall art
+  const lFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, artH + 0.12, artW + 0.12),
+    frameMat
+  );
+  lFrame.position.set(-ROOM_WIDTH / 2 + 0.08, ROOM_HEIGHT * 0.55, centerZ - 2);
+  layerGroup.add(lFrame);
+  const lCanvas = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, artH, artW),
+    canvasMat
+  );
+  lCanvas.position.set(-ROOM_WIDTH / 2 + 0.11, ROOM_HEIGHT * 0.55, centerZ - 2);
+  layerGroup.add(lCanvas);
+
+  // Right wall art (slightly different position/size)
+  const rFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, artH * 0.85 + 0.12, artW * 0.75 + 0.12),
+    frameMat.clone()
+  );
+  rFrame.position.set(ROOM_WIDTH / 2 - 0.08, ROOM_HEIGHT * 0.6, centerZ + 1.5);
+  layerGroup.add(rFrame);
+  const rCanvas = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, artH * 0.85, artW * 0.75),
+    canvasMat.clone()
+  );
+  rCanvas.position.set(ROOM_WIDTH / 2 - 0.11, ROOM_HEIGHT * 0.6, centerZ + 1.5);
+  layerGroup.add(rCanvas);
+
+  // --- Rug on floor ---
+  const rugMat = new THREE.MeshStandardMaterial({
+    color: layerColor.clone().multiplyScalar(0.28),
+    roughness: 0.96,
+    metalness: 0.02,
+  });
+  const rug = new THREE.Mesh(
+    new THREE.BoxGeometry(3.5, 0.015, 5.5),
+    rugMat
+  );
+  rug.position.set(0, 0.135, centerZ);
+  layerGroup.add(rug);
+
+  // --- Potted plant in corner ---
+  const potColor = new THREE.Color('#3a2a1a');
+  const pot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.13, 0.22, 8),
+    new THREE.MeshStandardMaterial({ color: potColor, roughness: 0.9, metalness: 0.1 })
+  );
+  const plantX = index % 2 === 0 ? -3.8 : 3.8;
+  const plantZ = centerZ + (index % 2 === 0 ? 4.5 : -4.5);
+  pot.position.set(plantX, 0.23, plantZ);
+  layerGroup.add(pot);
+
+  const foliageMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#1a4a16'),
+    roughness: 0.85,
+    metalness: 0.05,
+    emissive: layerColor,
+    emissiveIntensity: 0.02,
+  });
+  const foliage = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22, 8, 6),
+    foliageMat
+  );
+  foliage.position.set(plantX, 0.5, plantZ);
+  layerGroup.add(foliage);
+
+  // --- Small floating shelf on back/dividing wall ---
+  const shelfMat = new THREE.MeshStandardMaterial({
+    color: layerColor.clone().multiplyScalar(0.4),
+    roughness: 0.8,
+    metalness: 0.2,
+  });
+  const shelfX = index % 2 === 0 ? 2 : -2;
+  const shelfZ = roomZ + ROOM_DEPTH - 0.2;
+  if (index < LAYERS.length - 1) {
+    const shelf = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.06, 0.25),
+      shelfMat
+    );
+    shelf.position.set(shelfX, ROOM_HEIGHT * 0.45, shelfZ);
+    layerGroup.add(shelf);
+  }
+}
+
 // Smoothstep easing: t * t * (3 - 2t)
 function smoothstep(t) {
   t = Math.max(0, Math.min(1, t));
@@ -389,9 +494,10 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   // Build exterior
   buildExterior(layerGroup);
 
-  // Build rooms
+  // Build rooms + decorations
   LAYERS.forEach((layer, index) => {
     buildRoom(layerGroup, layer, index);
+    buildDecorations(layerGroup, layer, index);
 
     const geos = GEOMETRY_FACTORIES[index]();
     const offsets = OBJECT_OFFSETS[index];
@@ -467,10 +573,11 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
       const oldFov = fovTarget;
       fovTarget += e.deltaY * 0.05;
       fovTarget = Math.max(FOV_MIN, Math.min(FOV_MAX, fovTarget));
-      // Zoom toward mouse cursor by shifting look direction
+      // Zoom toward mouse cursor: shift look direction toward cursor
       const fovDelta = fovTarget - oldFov;
-      yawTarget -= mouse.x * fovDelta * 0.008;
-      pitchTarget += mouse.y * fovDelta * 0.006;
+      const fovRad = fovDelta * Math.PI / 180;
+      yawTarget += mouse.x * fovRad * 0.5;
+      pitchTarget -= mouse.y * fovRad * 0.5;
       pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     } else {
       cameraTargetZ -= e.deltaY * 0.012;
@@ -492,8 +599,8 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     if (introPhase) return;
     if (!isDragging) return;
-    yawTarget += (e.clientX - lastMouseX) * 0.003;
-    pitchTarget -= (e.clientY - lastMouseY) * 0.003;
+    yawTarget -= (e.clientX - lastMouseX) * 0.003;
+    pitchTarget += (e.clientY - lastMouseY) * 0.003;
     pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
@@ -552,7 +659,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
       const tdy = t.clientY - lastTouchY;
       cameraTargetZ -= tdy * 0.05;
       cameraTargetZ = Math.max(minZ, Math.min(maxZ, cameraTargetZ));
-      yawTarget += tdx * 0.004;
+      yawTarget -= tdx * 0.004;
       lastTouchX = t.clientX;
       lastTouchY = t.clientY;
     }
@@ -569,16 +676,16 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     if (e.key === '=' || e.key === '+') {
       const oldFov = fovTarget;
       fovTarget = Math.max(FOV_MIN, fovTarget - 3);
-      const fovDelta = fovTarget - oldFov;
-      yawTarget -= mouse.x * fovDelta * 0.008;
-      pitchTarget += mouse.y * fovDelta * 0.006;
+      const fovRad = (fovTarget - oldFov) * Math.PI / 180;
+      yawTarget += mouse.x * fovRad * 0.5;
+      pitchTarget -= mouse.y * fovRad * 0.5;
       pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     } else if (e.key === '-' || e.key === '_') {
       const oldFov = fovTarget;
       fovTarget = Math.min(FOV_MAX, fovTarget + 3);
-      const fovDelta = fovTarget - oldFov;
-      yawTarget -= mouse.x * fovDelta * 0.008;
-      pitchTarget += mouse.y * fovDelta * 0.006;
+      const fovRad = (fovTarget - oldFov) * Math.PI / 180;
+      yawTarget += mouse.x * fovRad * 0.5;
+      pitchTarget -= mouse.y * fovRad * 0.5;
       pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     } else if (e.key === '0') {
       fovTarget = 65;
