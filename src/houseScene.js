@@ -589,6 +589,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   const onMouseDown = (e) => {
     if (introPhase) return;
     isDragging = true;
+    container.style.cursor = 'grabbing';
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
     mouseDownPos = { x: e.clientX, y: e.clientY };
@@ -607,6 +608,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   };
   const onMouseUp = (e) => {
     isDragging = false;
+    container.style.cursor = 'grab';
     if (introPhase) return;
     // Click detection: if mouse barely moved, check for object click
     const dx = e.clientX - mouseDownPos.x;
