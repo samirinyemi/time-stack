@@ -599,7 +599,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     if (introPhase) return;
     if (!isDragging) return;
-    yawTarget -= (e.clientX - lastMouseX) * 0.003;
+    yawTarget += (e.clientX - lastMouseX) * 0.003;
     pitchTarget += (e.clientY - lastMouseY) * 0.003;
     pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitchTarget));
     lastMouseX = e.clientX;
@@ -659,7 +659,7 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
       const tdy = t.clientY - lastTouchY;
       cameraTargetZ += tdy * 0.05;
       cameraTargetZ = Math.max(minZ, Math.min(maxZ, cameraTargetZ));
-      yawTarget -= tdx * 0.004;
+      yawTarget += tdx * 0.004;
       lastTouchX = t.clientX;
       lastTouchY = t.clientY;
     }
