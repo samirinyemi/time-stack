@@ -124,6 +124,57 @@ body,
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* ─── Discovery progress HUD ─── */
+
+.discovery-hud {
+  position: fixed;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  user-select: none;
+}
+
+.discovery-progress-bar {
+  width: 120px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.discovery-progress-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.5s ease,
+    box-shadow 0.5s ease;
+}
+
+.discovery-stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.discovery-count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.discovery-xp {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
 /* ─── Right rail: layer nav ─── */
 
 .ui-right-rail {
@@ -283,21 +334,38 @@ button.rail-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 12, 8, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: fadeIn 0.3s ease-out;
+  background: rgba(8, 12, 8, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  /* No CSS animation — GSAP handles enter/exit */
+}
+
+.particle-burst-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 21;
+}
+
+.burst-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .artifact-card {
   position: relative;
-  max-width: 400px;
+  max-width: 420px;
   width: 90%;
-  padding: 36px 32px 32px;
-  background: rgba(20, 25, 20, 0.95);
+  padding: 0 32px 32px;
+  background: rgba(16, 20, 16, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  animation: fadeSlideUp 0.4s ease-out;
+  border-radius: 8px;
+  overflow: hidden;
+  /* GSAP controls initial state */
 }
 
 .artifact-close {
@@ -312,10 +380,45 @@ button.rail-item {
   line-height: 1;
   padding: 4px 8px;
   transition: color 0.3s ease;
+  z-index: 2;
 }
 
 .artifact-close:hover {
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* ─── New discovery badge ─── */
+
+.discovery-badge {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 10px 0 0;
+  animation: badgePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ─── 3D artifact viewer ─── */
+
+.artifact-viewer {
+  width: 100%;
+  height: 200px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, rgba(30, 35, 30, 0.8) 0%, rgba(8, 12, 8, 0.95) 100%);
+}
+
+.artifact-viewer canvas {
+  display: block;
+  width: 100% !important;
+  height: 200px !important;
 }
 
 .artifact-accent {
@@ -341,12 +444,123 @@ button.rail-item {
   margin-bottom: 16px;
 }
 
+.artifact-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .artifact-layer {
   font-family: 'Courier Prime', monospace;
   font-size: 9px;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.25);
+}
+
+.artifact-xp {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  animation: xpPop 0.5s ease-out;
+}
+
+@keyframes xpPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ─── Achievement toast ─── */
+
+.achievement-toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  background: rgba(16, 20, 16, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: toastSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    toastFadeOut 0.5s ease-in 3s forwards;
+}
+
+@keyframes toastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes toastFadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+.achievement-icon {
+  font-size: 24px;
+  color: #c8b99a;
+  animation: iconSpin 0.8s ease-out;
+}
+
+@keyframes iconSpin {
+  from { transform: rotate(-180deg) scale(0.3); opacity: 0; }
+  to { transform: rotate(0deg) scale(1); opacity: 1; }
+}
+
+.achievement-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.achievement-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 8px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.achievement-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.achievement-desc {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.3px;
 }
 
 @keyframes fadeIn {
@@ -368,7 +582,11 @@ button.rail-item {
 @media (prefers-reduced-motion: reduce) {
   .ui-bottom-left,
   .artifact-card,
-  .artifact-overlay {
+  .artifact-overlay,
+  .achievement-toast,
+  .discovery-badge,
+  .artifact-xp,
+  .achievement-icon {
     animation: none !important;
   }
 
@@ -379,7 +597,8 @@ button.rail-item {
   .info-quote,
   .rail-label,
   .artifact-close,
-  .skip-link {
+  .skip-link,
+  .discovery-progress-fill {
     transition: none !important;
   }
 }

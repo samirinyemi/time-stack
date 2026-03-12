@@ -1,3 +1,33 @@
+// Geometry type descriptors for each layer's 3 objects
+// Used by both scene files and the overlay artifact viewer
+export const GEOMETRY_TYPES = [
+  [
+    { type: 'icosahedron', args: [0.6, 1] },
+    { type: 'box', args: [0.8, 0.8, 0.8] },
+    { type: 'octahedron', args: [0.6] },
+  ],
+  [
+    { type: 'torus', args: [0.5, 0.2, 12, 24] },
+    { type: 'tetrahedron', args: [0.7] },
+    { type: 'icosahedron', args: [0.55, 0] },
+  ],
+  [
+    { type: 'box', args: [0.7, 0.7, 0.7] },
+    { type: 'octahedron', args: [0.55] },
+    { type: 'torus', args: [0.45, 0.18, 12, 24] },
+  ],
+  [
+    { type: 'tetrahedron', args: [0.65] },
+    { type: 'icosahedron', args: [0.5, 1] },
+    { type: 'box', args: [0.75, 0.75, 0.75] },
+  ],
+  [
+    { type: 'octahedron', args: [0.6] },
+    { type: 'torus', args: [0.5, 0.2, 12, 24] },
+    { type: 'tetrahedron', args: [0.6] },
+  ],
+];
+
 export const LAYERS = [
   {
     name: 'The Foundation',
