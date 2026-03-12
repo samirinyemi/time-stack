@@ -319,7 +319,7 @@ function smoothstep(t) {
   return t * t * (3 - 2 * t);
 }
 
-export function initHouseScene(container, onLayerChange) {
+export function initHouseScene(container, onLayerChange, onObjectClick) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -344,8 +344,11 @@ export function initHouseScene(container, onLayerChange) {
   const layerGroup = new THREE.Group();
   scene.add(layerGroup);
 
+  // --- Reduced motion preference ---
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   // --- Intro animation state ---
-  let introPhase = true;
+  let introPhase = !prefersReducedMotion;
   const introStartPos = new THREE.Vector3(0, 2.8, -10);
   const introEndPos = new THREE.Vector3(0, 2.2, ROOM_CENTERS[LAYERS.length - 1]);
 
@@ -357,6 +360,7 @@ export function initHouseScene(container, onLayerChange) {
   let currentActiveLayer = startRoom;
   let isDragging = false;
   let lastMouseX = 0;
+  let mouseDownPos = { x: 0, y: 0 };
   let lastTouchX = 0;
   let lastTouchY = 0;
   let lastPinchDist = 0;
@@ -464,6 +468,7 @@ export function initHouseScene(container, onLayerChange) {
     if (introPhase) return;
     isDragging = true;
     lastMouseX = e.clientX;
+    mouseDownPos = { x: e.clientX, y: e.clientY };
   };
   const onMouseMove = (e) => {
     // Always track mouse for raycasting
@@ -474,8 +479,26 @@ export function initHouseScene(container, onLayerChange) {
     yawTarget += (e.clientX - lastMouseX) * 0.003;
     lastMouseX = e.clientX;
   };
-  const onMouseUp = () => {
+  const onMouseUp = (e) => {
     isDragging = false;
+    if (introPhase) return;
+    // Click detection: if mouse barely moved, check for object click
+    const dx = e.clientX - mouseDownPos.x;
+    const dy = e.clientY - mouseDownPos.y;
+    const moved = Math.sqrt(dx * dx + dy * dy);
+    if (moved < 5 && onObjectClick) {
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(hoverableMeshes);
+      if (intersects.length > 0) {
+        const hitMesh = intersects[0].object;
+        const objIndex = hoverableMeshes.indexOf(hitMesh);
+        if (objIndex !== -1) {
+          const layerIndex = Math.floor(objIndex / 3);
+          const objectIndex = objIndex % 3;
+          onObjectClick(layerIndex, objectIndex);
+        }
+      }
+    }
   };
   container.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
@@ -619,10 +642,12 @@ export function initHouseScene(container, onLayerChange) {
     // Float objects
     for (let i = 0; i < floatingObjects.length; i++) {
       const obj = floatingObjects[i];
-      const yOff = Math.sin(time * obj.speed + obj.phase) * 0.2;
+      const yOff = prefersReducedMotion ? 0 : Math.sin(time * obj.speed + obj.phase) * 0.2;
       obj.mesh.position.y = obj.baseY + yOff;
-      obj.mesh.rotation.x += obj.rotSpeedX;
-      obj.mesh.rotation.y += obj.rotSpeedY;
+      if (!prefersReducedMotion) {
+        obj.mesh.rotation.x += obj.rotSpeedX;
+        obj.mesh.rotation.y += obj.rotSpeedY;
+      }
       obj.sprite.position.y = obj.baseY + yOff + 0.9;
     }
 

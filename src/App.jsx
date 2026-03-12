@@ -6,8 +6,25 @@ import { initHouseScene } from './houseScene';
 export default function App() {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
+  const cardRef = useRef(null);
   const [activeLayer, setActiveLayer] = useState(4);
   const [viewMode, setViewMode] = useState('stack');
+  const [selectedObject, setSelectedObject] = useState(null);
+
+  const handleObjectClick = useCallback((layerIndex, objectIndex) => {
+    const l = LAYERS[layerIndex];
+    setSelectedObject({
+      layerIndex,
+      objectIndex,
+      name: l.objects[objectIndex],
+      description: l.objectDescriptions[objectIndex],
+      color: l.color,
+    });
+  }, []);
+
+  const closeOverlay = useCallback(() => {
+    setSelectedObject(null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -15,9 +32,13 @@ export default function App() {
     document.fonts.ready.then(() => {
       if (!mounted || !containerRef.current) return;
       const initFn = viewMode === 'stack' ? initScene : initHouseScene;
-      const instance = initFn(containerRef.current, (layer) => {
-        if (mounted) setActiveLayer(layer);
-      });
+      const instance = initFn(
+        containerRef.current,
+        (layer) => {
+          if (mounted) setActiveLayer(layer);
+        },
+        handleObjectClick
+      );
       sceneRef.current = instance;
     });
 
@@ -28,7 +49,26 @@ export default function App() {
         sceneRef.current = null;
       }
     };
-  }, [viewMode]);
+  }, [viewMode, handleObjectClick]);
+
+  // Close overlay on Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && selectedObject) {
+        setSelectedObject(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedObject]);
+
+  // Focus trap: focus close button when overlay opens
+  useEffect(() => {
+    if (selectedObject && cardRef.current) {
+      const closeBtn = cardRef.current.querySelector('.artifact-close');
+      if (closeBtn) closeBtn.focus();
+    }
+  }, [selectedObject]);
 
   const handleRailClick = useCallback((index) => {
     if (sceneRef.current && sceneRef.current.scrollToLayer) {
@@ -45,17 +85,25 @@ export default function App() {
 
   return (
     <>
-      <div ref={containerRef} className="canvas-container" />
+      <div
+        ref={containerRef}
+        className="canvas-container"
+        role="img"
+        aria-label="Interactive 3D visualization of The Time Stack"
+      />
 
-      <div className="ui-top-left">SONI LABS</div>
+      <div id="main-content" className="ui-top-left" aria-hidden="true">
+        SONI LABS
+      </div>
 
-      <div className="ui-top-center">The Time Stack</div>
+      <h1 className="ui-top-center">The Time Stack</h1>
 
-      <div className="ui-view-toggle">
+      <div className="ui-view-toggle" role="group" aria-label="View mode">
         <button
           className={`toggle-btn ${viewMode === 'stack' ? 'active' : ''}`}
           style={viewMode === 'stack' ? { borderColor: layer.color, color: layer.color } : undefined}
           onClick={() => setViewMode('stack')}
+          aria-pressed={viewMode === 'stack'}
         >
           Stack
         </button>
@@ -63,20 +111,23 @@ export default function App() {
           className={`toggle-btn ${viewMode === 'house' ? 'active' : ''}`}
           style={viewMode === 'house' ? { borderColor: layer.color, color: layer.color } : undefined}
           onClick={() => setViewMode('house')}
+          aria-pressed={viewMode === 'house'}
         >
           House
         </button>
       </div>
 
-      <div className="ui-right-rail">
+      <nav className="ui-right-rail" aria-label="Layer navigation">
         {reversedLayers.map((l, i) => {
           const realIndex = LAYERS.length - 1 - i;
           const isActive = realIndex === activeLayer;
           return (
-            <div
+            <button
               key={realIndex}
               className={`rail-item ${isActive ? 'active' : ''}`}
               onClick={() => handleRailClick(realIndex)}
+              aria-label={`${l.period}${isActive ? ' (current)' : ''}`}
+              aria-current={isActive ? 'true' : undefined}
             >
               <span
                 className="rail-dash"
@@ -93,12 +144,12 @@ export default function App() {
               >
                 {l.period}
               </span>
-            </div>
+            </button>
           );
         })}
-      </div>
+      </nav>
 
-      <div className="ui-depth-line">
+      <div className="ui-depth-line" aria-hidden="true">
         <div
           className="depth-dot"
           style={{
@@ -109,8 +160,14 @@ export default function App() {
         />
       </div>
 
-      <div className="ui-bottom-left" key={`${viewMode}-${activeLayer}`}>
-        <div className="info-rule" style={{ backgroundColor: layer.color }} />
+      <div
+        className="ui-bottom-left"
+        key={`${viewMode}-${activeLayer}`}
+        aria-live="polite"
+        aria-atomic="true"
+        role="status"
+      >
+        <div className="info-rule" style={{ backgroundColor: layer.color }} aria-hidden="true" />
         <div className="info-content">
           <h2 className="info-era">{layer.name}</h2>
           <p className="info-quote" style={{ color: layer.color }}>
@@ -120,7 +177,42 @@ export default function App() {
         </div>
       </div>
 
-      <div className="ui-bottom-right">{hints}</div>
+      <div className="ui-bottom-right" aria-hidden="true">{hints}</div>
+
+      {selectedObject && (
+        <div className="artifact-overlay" onClick={closeOverlay}>
+          <div
+            className="artifact-card"
+            ref={cardRef}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label={`Details about ${selectedObject.name}`}
+            aria-modal="true"
+          >
+            <button
+              className="artifact-close"
+              onClick={closeOverlay}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <div
+              className="artifact-accent"
+              style={{ backgroundColor: selectedObject.color }}
+            />
+            <h3
+              className="artifact-name"
+              style={{ color: selectedObject.color }}
+            >
+              {selectedObject.name}
+            </h3>
+            <p className="artifact-desc">{selectedObject.description}</p>
+            <p className="artifact-layer">
+              {LAYERS[selectedObject.layerIndex].name} &middot; {LAYERS[selectedObject.layerIndex].period}
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

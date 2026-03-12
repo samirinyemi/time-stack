@@ -28,6 +28,28 @@ body,
   display: block;
 }
 
+/* ─── Skip link (accessibility) ─── */
+
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: #080c08;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
 /* ─── Top left: brand ─── */
 
 .ui-top-left {
@@ -114,6 +136,15 @@ body,
   gap: 24px;
   z-index: 10;
   user-select: none;
+}
+
+/* Rail item as button — reset default button styles */
+button.rail-item {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
 }
 
 .rail-item {
@@ -241,4 +272,114 @@ body,
   color: rgba(255, 255, 255, 0.3);
   z-index: 10;
   user-select: none;
+}
+
+/* ─── Artifact overlay card ─── */
+
+.artifact-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 8, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.artifact-card {
+  position: relative;
+  max-width: 400px;
+  width: 90%;
+  padding: 36px 32px 32px;
+  background: rgba(20, 25, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  animation: fadeSlideUp 0.4s ease-out;
+}
+
+.artifact-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  transition: color 0.3s ease;
+}
+
+.artifact-close:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.artifact-accent {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  margin-bottom: 16px;
+}
+
+.artifact-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.artifact-desc {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.3px;
+  margin-bottom: 16px;
+}
+
+.artifact-layer {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ─── Focus indicators (accessibility) ─── */
+
+.toggle-btn:focus-visible,
+.rail-item:focus-visible,
+.artifact-close:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* ─── Reduced motion (accessibility) ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-bottom-left,
+  .artifact-card,
+  .artifact-overlay {
+    animation: none !important;
+  }
+
+  .rail-dash,
+  .depth-dot,
+  .toggle-btn,
+  .info-rule,
+  .info-quote,
+  .rail-label,
+  .artifact-close,
+  .skip-link {
+    transition: none !important;
+  }
 }

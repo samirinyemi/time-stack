@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { LAYERS } from './layers';
 
+const TOP_Y = LAYERS[LAYERS.length - 1].y;
+const LAYER_GAP = LAYERS.length > 1 ? LAYERS[1].y - LAYERS[0].y : 9;
+const INTRO_DURATION = 3.5;
+
 const GEOMETRY_FACTORIES = [
   () => [
     new THREE.IcosahedronGeometry(0.6, 1),
@@ -37,6 +41,11 @@ const OBJECT_OFFSETS = [
   [[-6.5, 2.4, -1], [0, 2.5, 3], [6, 2.3, -4]],
 ];
 
+function smoothstep(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t * t * (3 - 2 * t);
+}
+
 function createTextSprite(text, color) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -60,7 +69,7 @@ function createTextSprite(text, color) {
   return sprite;
 }
 
-export function initScene(container, onLayerChange) {
+export function initScene(container, onLayerChange, onObjectClick) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -79,15 +88,23 @@ export function initScene(container, onLayerChange) {
     0.1,
     200
   );
-  camera.position.set(0, 24, 22);
+  camera.position.set(0, TOP_Y, 22);
 
   scene.add(new THREE.AmbientLight(0x1a2418, 0.6));
 
   const layerGroup = new THREE.Group();
   scene.add(layerGroup);
 
-  let cameraTargetY = 24;
-  let cameraCurrentY = 24;
+  // --- Reduced motion preference ---
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // --- Intro animation state ---
+  let introPhase = !prefersReducedMotion;
+  const introStartPos = new THREE.Vector3(0, -5, 35);
+  const introEndPos = new THREE.Vector3(0, TOP_Y, 22);
+
+  let cameraTargetY = TOP_Y;
+  let cameraCurrentY = TOP_Y;
   let cameraTargetZ = 22;
   let cameraCurrentZ = 22;
   const ZOOM_MIN = 10;
@@ -97,6 +114,7 @@ export function initScene(container, onLayerChange) {
   let currentActiveLayer = 4;
   let isDragging = false;
   let lastMouseX = 0;
+  let mouseDownPos = { x: 0, y: 0 };
   let lastTouchX = 0;
   let lastTouchY = 0;
   let lastPinchDist = 0;
@@ -104,7 +122,7 @@ export function initScene(container, onLayerChange) {
   const floatingObjects = [];
   const hoverableMeshes = [];
 
-  // --- Raycaster for hover glow ---
+  // --- Raycaster for hover glow + click ---
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
   let hoveredObj = null;
@@ -113,7 +131,7 @@ export function initScene(container, onLayerChange) {
   const slabGeo = new THREE.BoxGeometry(22, 0.28, 22);
   const hStripGeo = new THREE.BoxGeometry(22, 0.025, 0.05);
   const vStripGeo = new THREE.BoxGeometry(0.05, 0.025, 22);
-  const pillarH = 6 - 0.28;
+  const pillarH = LAYER_GAP - 0.28;
   const pillarGeo = new THREE.CylinderGeometry(0.035, 0.035, pillarH, 6);
   const pillarMat = new THREE.MeshStandardMaterial({
     color: 0x151a14,
@@ -210,7 +228,7 @@ export function initScene(container, onLayerChange) {
   const pVelocities = [];
   for (let i = 0; i < particleCount; i++) {
     pPositions[i * 3] = (Math.random() - 0.5) * 50;
-    pPositions[i * 3 + 1] = Math.random() * 32 - 4;
+    pPositions[i * 3 + 1] = Math.random() * (TOP_Y + 8) - 4;
     pPositions[i * 3 + 2] = (Math.random() - 0.5) * 50;
     pVelocities.push({
       x: (Math.random() - 0.5) * 0.004,
@@ -232,40 +250,60 @@ export function initScene(container, onLayerChange) {
   // --- Events ---
   const onWheel = (e) => {
     e.preventDefault();
+    if (introPhase) return;
     if (e.ctrlKey || e.metaKey) {
-      // Zoom
       cameraTargetZ += e.deltaY * 0.015;
       cameraTargetZ = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cameraTargetZ));
     } else {
-      // Scroll through layers
       cameraTargetY -= e.deltaY * 0.008;
-      cameraTargetY = Math.max(0, Math.min(24, cameraTargetY));
+      cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
     }
   };
   container.addEventListener('wheel', onWheel, { passive: false });
 
   const onMouseDown = (e) => {
+    if (introPhase) return;
     isDragging = true;
     lastMouseX = e.clientX;
+    mouseDownPos = { x: e.clientX, y: e.clientY };
   };
   const onMouseMove = (e) => {
     // Always track mouse for raycasting
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    if (introPhase) return;
     if (!isDragging) return;
     rotationTarget += (e.clientX - lastMouseX) * 0.003;
     lastMouseX = e.clientX;
   };
-  const onMouseUp = () => {
+  const onMouseUp = (e) => {
     isDragging = false;
+    if (introPhase) return;
+    // Click detection: if mouse barely moved, check for object click
+    const dx = e.clientX - mouseDownPos.x;
+    const dy = e.clientY - mouseDownPos.y;
+    const moved = Math.sqrt(dx * dx + dy * dy);
+    if (moved < 5 && onObjectClick) {
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(hoverableMeshes);
+      if (intersects.length > 0) {
+        const hitMesh = intersects[0].object;
+        const objIndex = hoverableMeshes.indexOf(hitMesh);
+        if (objIndex !== -1) {
+          const layerIndex = Math.floor(objIndex / 3);
+          const objectIndex = objIndex % 3;
+          onObjectClick(layerIndex, objectIndex);
+        }
+      }
+    }
   };
   container.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
 
   const onTouchStart = (e) => {
+    if (introPhase) return;
     if (e.touches.length === 2) {
-      // Pinch start
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastPinchDist = Math.hypot(dx, dy);
@@ -277,8 +315,8 @@ export function initScene(container, onLayerChange) {
   };
   const onTouchMove = (e) => {
     e.preventDefault();
+    if (introPhase) return;
     if (e.touches.length === 2) {
-      // Pinch zoom
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
@@ -293,7 +331,7 @@ export function initScene(container, onLayerChange) {
       const tdx = t.clientX - lastTouchX;
       const tdy = t.clientY - lastTouchY;
       cameraTargetY -= tdy * 0.035;
-      cameraTargetY = Math.max(0, Math.min(24, cameraTargetY));
+      cameraTargetY = Math.max(0, Math.min(TOP_Y, cameraTargetY));
       rotationTarget += tdx * 0.004;
       lastTouchX = t.clientX;
       lastTouchY = t.clientY;
@@ -306,14 +344,14 @@ export function initScene(container, onLayerChange) {
   container.addEventListener('touchmove', onTouchMove, { passive: false });
   container.addEventListener('touchend', onTouchEnd, { passive: true });
 
-  // Keyboard zoom
   const onKeyDown = (e) => {
+    if (introPhase) return;
     if (e.key === '=' || e.key === '+') {
       cameraTargetZ = Math.max(ZOOM_MIN, cameraTargetZ - 2);
     } else if (e.key === '-' || e.key === '_') {
       cameraTargetZ = Math.min(ZOOM_MAX, cameraTargetZ + 2);
     } else if (e.key === '0') {
-      cameraTargetZ = 22; // reset zoom
+      cameraTargetZ = 22;
     }
   };
   window.addEventListener('keydown', onKeyDown);
@@ -331,23 +369,73 @@ export function initScene(container, onLayerChange) {
     animId = requestAnimationFrame(animate);
     const time = clock.getElapsedTime();
 
-    // Camera lerp
-    cameraCurrentY += (cameraTargetY - cameraCurrentY) * 0.055;
-    cameraCurrentZ += (cameraTargetZ - cameraCurrentZ) * 0.065;
-    camera.position.set(0, cameraCurrentY, cameraCurrentZ);
-    camera.lookAt(0, cameraCurrentY - 2.5, 0);
+    // --- Intro camera fly-through ---
+    if (introPhase) {
+      if (time < INTRO_DURATION) {
+        const t = smoothstep(time / INTRO_DURATION);
+        camera.position.lerpVectors(introStartPos, introEndPos, t);
+        camera.lookAt(0, camera.position.y - 2.5, 0);
 
-    // Rotation lerp
-    rotationCurrent += (rotationTarget - rotationCurrent) * 0.075;
-    layerGroup.rotation.y = rotationCurrent;
+        // Detect active layer during intro for UI updates
+        let closest = 0;
+        let minDist = Infinity;
+        for (let i = 0; i < LAYERS.length; i++) {
+          const dist = Math.abs(camera.position.y - LAYERS[i].y);
+          if (dist < minDist) {
+            minDist = dist;
+            closest = i;
+          }
+        }
+        if (closest !== currentActiveLayer) {
+          currentActiveLayer = closest;
+          onLayerChange(closest);
+        }
+      } else {
+        introPhase = false;
+        cameraCurrentY = introEndPos.y;
+        cameraTargetY = introEndPos.y;
+        cameraCurrentZ = introEndPos.z;
+        cameraTargetZ = introEndPos.z;
+        camera.position.copy(introEndPos);
+      }
+    }
+
+    if (!introPhase) {
+      // Camera lerp
+      cameraCurrentY += (cameraTargetY - cameraCurrentY) * 0.055;
+      cameraCurrentZ += (cameraTargetZ - cameraCurrentZ) * 0.065;
+      camera.position.set(0, cameraCurrentY, cameraCurrentZ);
+      camera.lookAt(0, cameraCurrentY - 2.5, 0);
+
+      // Rotation lerp
+      rotationCurrent += (rotationTarget - rotationCurrent) * 0.075;
+      layerGroup.rotation.y = rotationCurrent;
+
+      // Active layer detection
+      let closest = 0;
+      let minDist = Infinity;
+      for (let i = 0; i < LAYERS.length; i++) {
+        const dist = Math.abs(cameraCurrentY - LAYERS[i].y);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = i;
+        }
+      }
+      if (closest !== currentActiveLayer) {
+        currentActiveLayer = closest;
+        onLayerChange(closest);
+      }
+    }
 
     // Float objects
     for (let i = 0; i < floatingObjects.length; i++) {
       const obj = floatingObjects[i];
-      const yOff = Math.sin(time * obj.speed + obj.phase) * 0.3;
+      const yOff = prefersReducedMotion ? 0 : Math.sin(time * obj.speed + obj.phase) * 0.3;
       obj.mesh.position.y = obj.baseY + yOff;
-      obj.mesh.rotation.x += obj.rotSpeedX;
-      obj.mesh.rotation.y += obj.rotSpeedY;
+      if (!prefersReducedMotion) {
+        obj.mesh.rotation.x += obj.rotSpeedX;
+        obj.mesh.rotation.y += obj.rotSpeedY;
+      }
       obj.sprite.position.y = obj.baseY + yOff + 1.2;
     }
 
@@ -363,7 +451,7 @@ export function initScene(container, onLayerChange) {
       if (hoveredObj) hoveredObj.glowTarget = 0.15;
       if (newHovered) newHovered.glowTarget = 0.6;
       hoveredObj = newHovered;
-      container.style.cursor = newHovered ? 'pointer' : 'grab';
+      container.style.cursor = newHovered ? 'pointer' : (introPhase ? 'default' : 'grab');
     }
     // Lerp emissiveIntensity
     for (let i = 0; i < floatingObjects.length; i++) {
@@ -379,26 +467,11 @@ export function initScene(container, onLayerChange) {
       posArr[i3] += pVelocities[i].x;
       posArr[i3 + 1] += pVelocities[i].y;
       posArr[i3 + 2] += pVelocities[i].z;
-      if (posArr[i3 + 1] > 30) posArr[i3 + 1] = -4;
+      if (posArr[i3 + 1] > TOP_Y + 6) posArr[i3 + 1] = -4;
       if (posArr[i3] > 25 || posArr[i3] < -25) pVelocities[i].x *= -1;
       if (posArr[i3 + 2] > 25 || posArr[i3 + 2] < -25) pVelocities[i].z *= -1;
     }
     pGeo.attributes.position.needsUpdate = true;
-
-    // Active layer detection
-    let closest = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < LAYERS.length; i++) {
-      const dist = Math.abs(cameraCurrentY - LAYERS[i].y);
-      if (dist < minDist) {
-        minDist = dist;
-        closest = i;
-      }
-    }
-    if (closest !== currentActiveLayer) {
-      currentActiveLayer = closest;
-      onLayerChange(closest);
-    }
 
     renderer.render(scene, camera);
   }
@@ -406,6 +479,7 @@ export function initScene(container, onLayerChange) {
 
   return {
     scrollToLayer(index) {
+      if (introPhase) return;
       if (index >= 0 && index < LAYERS.length) {
         cameraTargetY = LAYERS[index].y;
       }

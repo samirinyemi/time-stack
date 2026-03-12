@@ -6,6 +6,11 @@ export const LAYERS = [
     detail: 'Where curiosity became intention',
     color: '#3D2B1A',
     objects: ['First Brief', 'Sketchbook', 'The Eye'],
+    objectDescriptions: [
+      'The very first design brief that started it all \u2014 a handwritten note on lined paper.',
+      'A worn Moleskine filled with sketches, observations, and half-formed ideas.',
+      'The practice of truly seeing, not just looking. Observation as a creative act.',
+    ],
     y: 0,
   },
   {
@@ -15,7 +20,12 @@ export const LAYERS = [
     detail: 'Learning through making',
     color: '#4A6741',
     objects: ['Brand Mark', 'Late Invoice', 'Pixel Grid'],
-    y: 6,
+    objectDescriptions: [
+      'The first logo delivered to a paying client. Imperfect, but real.',
+      'A reminder that creativity and commerce must coexist \u2014 even when payment is late.',
+      'The foundational unit of digital design. Every screen begins here.',
+    ],
+    y: 9,
   },
   {
     name: 'The Discipline',
@@ -24,7 +34,12 @@ export const LAYERS = [
     detail: 'Precision as philosophy',
     color: '#7A9E72',
     objects: ['Design System', 'The Grid', 'Component'],
-    y: 12,
+    objectDescriptions: [
+      'When individual decisions became repeatable patterns. Consistency as craft.',
+      'The invisible architecture beneath every layout. Structure that liberates.',
+      'A single reusable building block \u2014 the atom of modern interface design.',
+    ],
+    y: 18,
   },
   {
     name: 'The Break',
@@ -33,7 +48,12 @@ export const LAYERS = [
     detail: 'Breaking to rebuild',
     color: '#C8B99A',
     objects: ['AI Prompt', 'Vibe Code', 'New Tools'],
-    y: 18,
+    objectDescriptions: [
+      'The moment language became a design tool. Prompting as a new form of intent.',
+      'Writing code by feel, not by spec. When intuition met technology.',
+      'Embracing unfamiliar instruments \u2014 the discomfort that precedes growth.',
+    ],
+    y: 27,
   },
   {
     name: 'The Studio',
@@ -42,6 +62,11 @@ export const LAYERS = [
     detail: 'Present tense, future facing',
     color: '#E8E0CC',
     objects: ['Identity', 'The Work', "What's Next"],
-    y: 24,
+    objectDescriptions: [
+      'The visual language of Soni Labs \u2014 where personal vision meets public presence.',
+      'The current portfolio. Every project a conversation between craft and curiosity.',
+      'The unwritten chapter. An invitation to collaborate, explore, and build forward.',
+    ],
+    y: 36,
   },
 ];
