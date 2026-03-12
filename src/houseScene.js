@@ -350,14 +350,16 @@ export function initHouseScene(container, onLayerChange, onObjectClick) {
   // --- Intro animation state ---
   let introPhase = !prefersReducedMotion;
   const introStartPos = new THREE.Vector3(0, 2.8, -10);
-  const introEndPos = new THREE.Vector3(0, 2.2, ROOM_CENTERS[LAYERS.length - 1]);
+  const introEndPos = new THREE.Vector3(0, 2.2, ROOM_CENTERS[0]);
 
-  const startRoom = LAYERS.length - 1;
+  const startRoom = 0;
   let cameraTargetZ = ROOM_CENTERS[startRoom];
   let cameraCurrentZ = ROOM_CENTERS[startRoom];
   let yawTarget = 0;
   let yawCurrent = 0;
   let currentActiveLayer = startRoom;
+  // Notify React of starting layer immediately
+  onLayerChange(startRoom);
   let isDragging = false;
   let lastMouseX = 0;
   let mouseDownPos = { x: 0, y: 0 };
